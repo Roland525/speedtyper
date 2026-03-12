@@ -1,5 +1,3 @@
-import os
-
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -15,33 +13,16 @@ from auth import hash_password, verify_password, create_access_token, create_ref
 
 app = FastAPI(title="Typing King API")
 
-DEFAULT_CORS_ORIGIN_REGEX = (
-    r"^https?://("
-    r"localhost|127\.0\.0\.1|0\.0\.0\.0|"
-    r"192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|"
-    r"172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+"
-    r")(:\d+)?$"
-)
-
-cors_origins = [
-    origin.strip()
-    for origin in os.getenv(
-        "CORS_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173,http://0.0.0.0:5173",
-    ).split(",")
-    if origin.strip()
-]
-cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", DEFAULT_CORS_ORIGIN_REGEX)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_origin_regex=cors_origin_regex,
-    allow_credentials=False,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 @app.on_event("startup")
 def startup():
@@ -63,16 +44,18 @@ def require_user(authorization: str | None = Header(default=None), db: Session =
 @app.get("/api/game/config")
 def game_config():
     return {
-        "modes": [30, 60, 120],
+        "modes": [15, 30, 60, 120],
         "languages": ["EN", "RU", "LV"],
-        "default_mode": 60,
+        "default_mode": 30,
         "default_language": "EN",
     }
 
 @app.post("/api/auth/register", response_model=UserOut, status_code=201)
 def register(data: RegisterIn, db: Session = Depends(get_db)):
-    # уникальность username/email
-    exists = db.execute(select(User).where((User.username == data.username) | (User.email == data.email))).scalar_one_or_none()
+    exists = db.execute(
+        select(User).where((User.username == data.username) | (User.email == data.email))
+    ).scalar_one_or_none()
+
     if exists:
         raise HTTPException(status_code=409, detail="Username or email already exists")
 
@@ -103,7 +86,7 @@ def me(user: User = Depends(require_user)):
 
 @app.post("/api/results", response_model=ResultOut, status_code=201)
 def save_result(data: ResultIn, db: Session = Depends(get_db), user: User = Depends(require_user)):
-    if data.mode_seconds not in (30, 60, 120):
+    if data.mode_seconds not in (15, 30, 60, 120):
         raise HTTPException(status_code=400, detail="Invalid mode_seconds")
     if data.language not in ("EN", "RU", "LV"):
         raise HTTPException(status_code=400, detail="Invalid language")
@@ -124,11 +107,12 @@ def save_result(data: ResultIn, db: Session = Depends(get_db), user: User = Depe
     return r
 
 @app.get("/api/leaderboard", response_model=LeaderboardOut)
-def leaderboard(mode_seconds: int = 60, language: str = "EN", limit: int = 20, db: Session = Depends(get_db)):
-    if mode_seconds not in (30, 60, 120):
+def leaderboard(mode_seconds: int = 30, language: str = "EN", limit: int = 20, db: Session = Depends(get_db)):
+    if mode_seconds not in (15, 30, 60, 120):
         raise HTTPException(status_code=400, detail="Invalid mode_seconds")
     if language not in ("EN", "RU", "LV"):
         raise HTTPException(status_code=400, detail="Invalid language")
+
     limit = max(1, min(limit, 100))
 
     rows = db.execute(
