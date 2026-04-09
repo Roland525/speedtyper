@@ -1,100 +1,111 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, setTokens, clearTokens, getToken } from "./api";
 
+// --- Словари слов для каждого языка ---
 const WORDS = {
   EN: [
     "follow", "now", "this", "life", "through", "should", "late", "school", "say", "another",
-    "fact", "great", "in", "should", "through", "go", "high", "from", "person", "year",
-    "when", "if", "as", "hold", "between", "house", "real", "she", "open", "late",
-    "person", "govern", "increase", "water", "around", "story", "young", "part", "system", "while",
+    "fact", "great", "in", "their", "most", "go", "high", "from", "make", "year",
+    "when", "if", "as", "hold", "between", "house", "real", "she", "open", "work",
+    "people", "govern", "increase", "water", "around", "story", "young", "part", "system", "while",
     "place", "number", "during", "small", "group", "might", "again", "point", "world", "hand",
-    "home", "family", "under", "problem", "country", "large", "always", "without", "example", "begin"
+    "home", "family", "under", "problem", "country", "large", "always", "without", "example", "begin",
   ],
   RU: [
     "пример", "время", "через", "жизнь", "факт", "маленький", "голова", "вечер", "точно", "слово",
     "открыть", "утро", "рука", "сейчас", "если", "между", "дом", "реальный", "вода", "история",
     "мир", "семья", "страна", "начать", "конец", "всегда", "проблема", "система", "группа", "большой",
-    "снова", "работа", "город", "улица", "место", "почему", "потому", "важно", "быстро", "просто"
+    "снова", "работа", "город", "улица", "место", "почему", "потому", "важно", "быстро", "просто",
+    "вместе", "народ", "право", "сила", "жить", "видеть", "думать", "часть", "новый", "старый",
+    "первый", "только", "очень", "здесь", "после", "знать", "число", "путь", "свет", "дать",
   ],
   LV: [
     "tagad", "dzīve", "cauri", "skola", "teikt", "cits", "fakts", "cilvēks", "gads", "kad",
     "ja", "starp", "māja", "īsts", "atvērt", "vēlu", "ūdens", "stāsts", "pasaule", "ģimene",
     "valsts", "piemērs", "sākt", "beigas", "vienmēr", "problēma", "sistēma", "grupa", "mazs", "liels",
-    "atkal", "punkts", "darbs", "pilsēta", "iela", "vārds", "laiks", "vieta", "roka", "galva"
-  ]
+    "atkal", "punkts", "darbs", "pilsēta", "iela", "vārds", "laiks", "vieta", "roka", "galva",
+    "diena", "nakts", "gaisma", "krāsa", "skaitlis", "ceļš", "daba", "zeme", "jūra", "kalns",
+    "bērns", "vecāki", "draugs", "skaitīt", "rakstīt", "lasīt", "runāt", "dzīvot", "strādāt", "doties",
+  ],
 };
 
+// Генерирует строку из случайных слов заданного языка
 function generateWords(language, count = 120) {
   const pool = WORDS[language] || WORDS.EN;
-  const arr = [];
+  const words = [];
   for (let i = 0; i < count; i++) {
-    arr.push(pool[Math.floor(Math.random() * pool.length)]);
+    words.push(pool[Math.floor(Math.random() * pool.length)]);
   }
-  return arr.join(" ");
+  return words.join(" ");
 }
 
 export default function App() {
+  // --- Навигация ---
   const [tab, setTab] = useState("game");
-  const [mode, setMode] = useState(30);
+
+  // --- Настройки игры ---
+  const [mode, setMode] = useState(30);        // продолжительность: 15 / 30 / 60 / 120 сек
   const [language, setLanguage] = useState("EN");
 
-  const [text, setText] = useState(generateWords("EN", 120));
+  // --- Состояние игры ---
+  const [text, setText] = useState(generateWords("EN", 120)); // текст для набора
+  const [typed, setTyped] = useState("");      // что пользователь уже напечатал
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
-  const [typed, setTyped] = useState("");
   const inputRef = useRef(null);
+  const alreadySavedRef = useRef(false); // флаг: результат уже сохранён
 
-  const [me, setMe] = useState(null);
+  // --- Авторизация ---
+  const [user, setUser] = useState(null); // null = гость
+
+  // --- Формы авторизации ---
+  const [registerForm, setRegisterForm] = useState({ username: "", email: "", password: "" });
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+
+  // --- Лидерборд ---
+  const [leaderboard, setLeaderboard] = useState(null);
+
+  // --- Статусное сообщение ---
   const [msg, setMsg] = useState("");
 
-  const [reg, setReg] = useState({ username: "", email: "", password: "" });
-  const [log, setLog] = useState({ username: "", password: "" });
-
-  const [lb, setLb] = useState(null);
-  const autoSavedRef = useRef(false);
-
-  function showErr(e) {
-    setMsg("❌ " + (e?.message || String(e)));
+  function showError(e) {
+    setMsg("Error: " + (e?.message || String(e)));
   }
 
-  function showOk(s) {
-    setMsg("✅ " + s);
-  }
-
-  function reset(silent = true) {
+  // Сбрасывает игру в начальное состояние
+  function resetGame() {
     setStarted(false);
     setFinished(false);
     setTimeLeft(mode);
     setTyped("");
     setText(generateWords(language, 120));
-    autoSavedRef.current = false;
-    if (!silent) setMsg("");
+    alreadySavedRef.current = false;
+    setMsg("");
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
+  // При смене режима или языка — автоматически сбрасываем игру
   useEffect(() => {
-    setText(generateWords(language, 120));
     setStarted(false);
     setFinished(false);
     setTimeLeft(mode);
     setTyped("");
-    autoSavedRef.current = false;
+    setText(generateWords(language, 120));
+    alreadySavedRef.current = false;
+    setMsg("");
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, [language, mode]);
 
+  // При загрузке страницы — проверяем, есть ли сохранённый токен
   useEffect(() => {
-    (async () => {
-      if (!getToken()) return;
-      try {
-        const u = await api.me();
-        setMe(u);
-      } catch {
-        clearTokens();
-        setMe(null);
-      }
-    })();
+    if (!getToken()) return;
+    api.me()
+      .then(setUser)
+      .catch(() => { clearTokens(); setUser(null); });
   }, []);
 
+  // Таймер — тикает каждую секунду пока идёт игра
   useEffect(() => {
     if (!started || finished) return;
 
@@ -104,146 +115,132 @@ export default function App() {
       return;
     }
 
-    const id = setTimeout(() => {
-      setTimeLeft((t) => t - 1);
-    }, 1000);
-
-    return () => clearTimeout(id);
+    const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearTimeout(timer);
   }, [started, finished, timeLeft]);
 
-  const metrics = useMemo(() => {
-    const target = text;
-    const input = typed;
-
-    const totalChars = input.length;
-    let correctChars = 0;
+  // Считаем WPM, accuracy и ошибки на основе напечатанного текста
+  const stats = useMemo(() => {
+    let correct = 0;
     let errors = 0;
 
-    for (let i = 0; i < input.length; i++) {
-      if (i >= target.length) {
-        errors++;
-        continue;
-      }
-      if (input[i] === target[i]) correctChars++;
+    for (let i = 0; i < typed.length; i++) {
+      if (i < text.length && typed[i] === text[i]) correct++;
       else errors++;
     }
 
-    const elapsed = mode - timeLeft;
-    const minutes = Math.max(elapsed / 60, 1 / 60);
-    const wpm = Math.round((correctChars / 5) / minutes);
-    const accuracy =
-      totalChars === 0 ? 0 : Math.round((correctChars / totalChars) * 1000) / 10;
+    const elapsed = mode - timeLeft;               // сколько секунд прошло
+    const minutes = Math.max(elapsed / 60, 1 / 60); // минимум 1 секунда, чтоб не делить на 0
+    const wpm = Math.round((correct / 5) / minutes); // стандартная формула WPM
+    const accuracy = typed.length === 0
+      ? 0
+      : Math.round((correct / typed.length) * 1000) / 10;
 
     return {
-      totalChars,
-      correctChars,
-      errors,
       wpm,
       accuracy,
       elapsed,
-      incorrectChars: Math.max(totalChars - correctChars, 0),
+      correct,
+      errors,
+      total: typed.length,
+      incorrect: typed.length - correct,
     };
   }, [typed, text, mode, timeLeft]);
 
-  function onChange(e) {
-    const v = e.target.value;
+  // Вызывается при каждом нажатии клавиши
+  function handleTyping(e) {
+    const value = e.target.value;
 
-    if (!started && !finished && v.length > 0) {
+    // Первый символ — запускаем таймер
+    if (!started && !finished && value.length > 0) {
       setStarted(true);
       setTimeLeft(mode);
     }
 
-    setTyped(v.slice(0, text.length));
+    // Не даём напечатать больше, чем длина текста
+    setTyped(value.slice(0, text.length));
   }
 
-  async function doRegister() {
+  // --- Авторизация ---
+
+  async function register() {
     setMsg("");
     try {
-      await api.register(reg);
-      showOk("Registered. Now login.");
+      await api.register(registerForm);
+      setMsg("Registered. Now login.");
     } catch (e) {
-      showErr(e);
+      showError(e);
     }
   }
 
-  async function doLogin() {
+  async function login() {
     setMsg("");
     try {
-      const t = await api.login(log);
-      setTokens(t.access_token, t.refresh_token);
+      const tokens = await api.login(loginForm);
+      setTokens(tokens.access_token, tokens.refresh_token);
       const u = await api.me();
-      setMe(u);
-      showOk("Logged in as " + u.username);
+      setUser(u);
+      setMsg("Logged in as " + u.username);
       setTab("game");
     } catch (e) {
-      showErr(e);
+      showError(e);
     }
   }
 
-  function doLogout() {
+  function logout() {
     clearTokens();
-    setMe(null);
-    showOk("Logged out");
+    setUser(null);
+    setMsg("Logged out");
   }
 
-  async function saveResult(auto = false) {
+  // Сохраняем результат на сервер и обновляем лидерборд
+  async function saveResult() {
     try {
-      const payload = {
-        mode_seconds: Number(mode),
-        language: String(language),
-        wpm: Number(metrics.wpm),
-        accuracy: Number(metrics.accuracy),
-        errors: Number(metrics.errors),
-        total_chars: Number(metrics.totalChars),
-        correct_chars: Number(metrics.correctChars),
-      };
-
-      await api.saveResult(payload);
-
-      const data = await api.leaderboard(Number(mode), String(language), 20);
-      setLb(data);
-
-      if (auto) showOk("Saved to leaderboard");
-      else showOk("Result saved");
+      await api.saveResult({
+        mode_seconds: mode,
+        language,
+        wpm: stats.wpm,
+        accuracy: stats.accuracy,
+        errors: stats.errors,
+        total_chars: stats.total,
+        correct_chars: stats.correct,
+      });
+      const data = await api.leaderboard(mode, language, 20);
+      setLeaderboard(data);
+      setMsg("Saved to leaderboard");
     } catch (e) {
-      showErr(e);
+      showError(e);
     }
   }
 
-  async function loadLeaderboard() {
-    try {
-      const data = await api.leaderboard(Number(mode), String(language), 20);
-      setLb(data);
-    } catch (e) {
-      showErr(e);
-    }
-  }
-
+  // Загружаем лидерборд при открытии вкладки или смене фильтров
   useEffect(() => {
-    if (tab === "leaderboard") loadLeaderboard();
+    if (tab !== "leaderboard") return;
+    setLeaderboard(null);
+    api.leaderboard(mode, language, 20)
+      .then(setLeaderboard)
+      .catch((e) => setMsg("Error: " + (e?.message || String(e))));
   }, [tab, mode, language]);
 
+  // Когда игра заканчивается — авто-сохраняем результат
   useEffect(() => {
     if (!finished) return;
-    if (autoSavedRef.current) return;
+    if (alreadySavedRef.current) return;
+    alreadySavedRef.current = true;
 
-    if (!me) {
-      setMsg("ℹ️ Login to save results");
-      autoSavedRef.current = true;
+    if (!user) {
+      setMsg("Login to save results");
       return;
     }
 
-    autoSavedRef.current = true;
-    saveResult(true);
-  }, [finished, me]); // eslint-disable-line react-hooks/exhaustive-deps
+    saveResult();
+  }, [finished, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={S.page}>
+      {/* Шапка: название, навигация, имя пользователя */}
       <div style={S.topBar}>
-        <div style={S.brandWrap}>
-          <span style={S.logo}>👑</span>
-          <span style={S.brand}>Typing King</span>
-        </div>
+        <span style={S.brand}>Typing King</span>
 
         <div style={S.topNav}>
           <NavBtn active={tab === "game"} onClick={() => setTab("game")} text="Game" />
@@ -252,10 +249,10 @@ export default function App() {
         </div>
 
         <div style={S.userBox}>
-          {me ? (
+          {user ? (
             <>
-              <span style={{ color: "#94a3b8" }}>@{me.username}</span>
-              <button style={S.smallBtn} onClick={doLogout}>Logout</button>
+              <span style={{ color: "#94a3b8" }}>@{user.username}</span>
+              <button style={S.smallBtn} onClick={logout}>Logout</button>
             </>
           ) : (
             <span style={{ color: "#94a3b8" }}>Guest</span>
@@ -263,52 +260,51 @@ export default function App() {
         </div>
       </div>
 
+      {/* === ИГРА === */}
       {tab === "game" && (
         <>
           {!finished && (
             <>
+              {/* Кнопки выбора режима и языка */}
               <div style={S.controlsBar}>
-                <button style={mode === 15 ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(15)}>15</button>
-                <button style={mode === 30 ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(30)}>30</button>
-                <button style={mode === 60 ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(60)}>60</button>
-                <button style={mode === 120 ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(120)}>120</button>
+                {[15, 30, 60, 120].map((m) => (
+                  <button key={m} style={mode === m ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(m)}>
+                    {m}
+                  </button>
+                ))}
 
                 <div style={S.sep} />
 
-                <button style={language === "EN" ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage("EN")}>english</button>
-                <button style={language === "RU" ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage("RU")}>russian</button>
-                <button style={language === "LV" ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage("LV")}>latvian</button>
+                {[["EN", "english"], ["RU", "russian"], ["LV", "latvian"]].map(([code, label]) => (
+                  <button key={code} style={language === code ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage(code)}>
+                    {label}
+                  </button>
+                ))}
 
                 <div style={S.sep} />
 
-                <button style={S.modeBtn} onClick={() => reset(false)}>restart</button>
+                <button style={S.modeBtn} onClick={resetGame}>restart</button>
               </div>
 
+              {/* Живая статистика */}
               <div style={S.statsRow}>
-                <div style={S.bigStat}>
-                  <div style={S.statLabel}>time</div>
-                  <div style={S.statValue}>{timeLeft}</div>
-                </div>
-                <div style={S.bigStat}>
-                  <div style={S.statLabel}>wpm</div>
-                  <div style={S.statValue}>{metrics.wpm}</div>
-                </div>
-                <div style={S.bigStat}>
-                  <div style={S.statLabel}>acc</div>
-                  <div style={S.statValue}>{metrics.accuracy}%</div>
-                </div>
+                <Stat label="time" value={timeLeft} />
+                <Stat label="wpm" value={stats.wpm} />
+                <Stat label="acc" value={stats.accuracy + "%"} />
               </div>
 
               {msg && <div style={S.msg}>{msg}</div>}
 
+              {/* Текст для набора — клик фокусирует скрытый инпут */}
               <div style={S.typingWrap} onClick={() => inputRef.current?.focus()}>
-                <ThreeLineText text={text} typed={typed} finished={finished} />
+                <TypingText text={text} typed={typed} finished={finished} />
               </div>
 
+              {/* Скрытый инпут — перехватывает все нажатия клавиш */}
               <input
                 ref={inputRef}
                 value={typed}
-                onChange={onChange}
+                onChange={handleTyping}
                 disabled={finished}
                 style={S.hiddenInput}
                 autoFocus
@@ -316,6 +312,7 @@ export default function App() {
             </>
           )}
 
+          {/* Экран результатов */}
           {finished && (
             <div style={S.resultScreen}>
               {msg && <div style={S.msg}>{msg}</div>}
@@ -323,26 +320,25 @@ export default function App() {
               <div style={S.resultHeader}>
                 <div style={S.resultMain}>
                   <div style={S.resultMainLabel}>WPM</div>
-                  <div style={S.resultMainValue}>{metrics.wpm}</div>
+                  <div style={S.resultMainValue}>{stats.wpm}</div>
                 </div>
-
                 <div style={S.resultMain}>
                   <div style={S.resultMainLabel}>Accuracy</div>
-                  <div style={S.resultMainValue}>{metrics.accuracy}%</div>
+                  <div style={S.resultMainValue}>{stats.accuracy}%</div>
                 </div>
               </div>
 
               <div style={S.resultGrid}>
-                <ResultCard label="Time" value={`${metrics.elapsed}s`} />
-                <ResultCard label="Errors" value={metrics.errors} />
-                <ResultCard label="Correct chars" value={metrics.correctChars} />
-                <ResultCard label="Incorrect chars" value={metrics.incorrectChars} />
-                <ResultCard label="Total chars" value={metrics.totalChars} />
+                <ResultCard label="Time" value={`${stats.elapsed}s`} />
+                <ResultCard label="Errors" value={stats.errors} />
+                <ResultCard label="Correct chars" value={stats.correct} />
+                <ResultCard label="Incorrect chars" value={stats.incorrect} />
+                <ResultCard label="Total chars" value={stats.total} />
                 <ResultCard label="Language" value={language} />
               </div>
 
               <div style={S.resultActions}>
-                <button style={S.primaryBtn} onClick={() => reset(false)}>Try again</button>
+                <button style={S.primaryBtn} onClick={resetGame}>Try again</button>
                 <button style={S.smallBtn} onClick={() => setTab("leaderboard")}>Open leaderboard</button>
               </div>
             </div>
@@ -350,78 +346,59 @@ export default function App() {
         </>
       )}
 
+      {/* === АВТОРИЗАЦИЯ === */}
       {tab === "auth" && (
         <>
           {msg && <div style={S.msg}>{msg}</div>}
           <div style={S.authGrid}>
             <div style={S.authBox}>
               <div style={S.authTitle}>Register</div>
-              <input
-                style={S.input}
-                placeholder="Username"
-                value={reg.username}
-                onChange={(e) => setReg({ ...reg, username: e.target.value })}
-              />
-              <input
-                style={S.input}
-                placeholder="Email"
-                value={reg.email}
-                onChange={(e) => setReg({ ...reg, email: e.target.value })}
-              />
-              <input
-                style={S.input}
-                placeholder="Password"
-                type="password"
-                value={reg.password}
-                onChange={(e) => setReg({ ...reg, password: e.target.value })}
-              />
-              <button style={S.primaryBtn} onClick={doRegister}>Create account</button>
+              <input style={S.input} placeholder="Username" value={registerForm.username}
+                onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} />
+              <input style={S.input} placeholder="Email" value={registerForm.email}
+                onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} />
+              <input style={S.input} placeholder="Password" type="password" value={registerForm.password}
+                onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} />
+              <button style={S.primaryBtn} onClick={register}>Create account</button>
             </div>
 
             <div style={S.authBox}>
               <div style={S.authTitle}>Login</div>
-              <input
-                style={S.input}
-                placeholder="Username"
-                value={log.username}
-                onChange={(e) => setLog({ ...log, username: e.target.value })}
-              />
-              <input
-                style={S.input}
-                placeholder="Password"
-                type="password"
-                value={log.password}
-                onChange={(e) => setLog({ ...log, password: e.target.value })}
-              />
-              <button style={S.primaryBtn} onClick={doLogin}>Login</button>
+              <input style={S.input} placeholder="Username" value={loginForm.username}
+                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })} />
+              <input style={S.input} placeholder="Password" type="password" value={loginForm.password}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} />
+              <button style={S.primaryBtn} onClick={login}>Login</button>
             </div>
           </div>
         </>
       )}
 
+      {/* === ЛИДЕРБОРД === */}
       {tab === "leaderboard" && (
         <>
           {msg && <div style={S.msg}>{msg}</div>}
 
           <div style={S.lbFilters}>
-            <button style={mode === 15 ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(15)}>15</button>
-            <button style={mode === 30 ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(30)}>30</button>
-            <button style={mode === 60 ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(60)}>60</button>
-            <button style={mode === 120 ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(120)}>120</button>
-
+            {[15, 30, 60, 120].map((m) => (
+              <button key={m} style={mode === m ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(m)}>
+                {m}
+              </button>
+            ))}
             <div style={S.sep} />
-
-            <button style={language === "EN" ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage("EN")}>EN</button>
-            <button style={language === "RU" ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage("RU")}>RU</button>
-            <button style={language === "LV" ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage("LV")}>LV</button>
+            {["EN", "RU", "LV"].map((code) => (
+              <button key={code} style={language === code ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage(code)}>
+                {code}
+              </button>
+            ))}
           </div>
 
           <div style={S.lbWrap}>
             <div style={S.lbTitle}>Leaderboard — {mode}s / {language}</div>
 
-            {!lb ? (
+            {!leaderboard ? (
               <div style={{ color: "#94a3b8" }}>Loading...</div>
-            ) : lb.top.length === 0 ? (
+            ) : leaderboard.top.length === 0 ? (
               <div style={{ color: "#94a3b8" }}>No results yet</div>
             ) : (
               <div style={S.lbTable}>
@@ -432,14 +409,13 @@ export default function App() {
                   <div>Accuracy</div>
                   <div>Date</div>
                 </div>
-
-                {lb.top.map((r, i) => (
+                {leaderboard.top.map((row, i) => (
                   <div key={i} style={S.lbRow}>
                     <div>{i + 1}</div>
-                    <div>@{r.username}</div>
-                    <div>{Math.round(r.wpm)}</div>
-                    <div>{Math.round(r.accuracy * 10) / 10}%</div>
-                    <div>{new Date(r.created_at).toLocaleString()}</div>
+                    <div>@{row.username}</div>
+                    <div>{Math.round(row.wpm)}</div>
+                    <div>{Math.round(row.accuracy * 10) / 10}%</div>
+                    <div>{new Date(row.created_at).toLocaleString()}</div>
                   </div>
                 ))}
               </div>
@@ -451,47 +427,45 @@ export default function App() {
   );
 }
 
-function ThreeLineText({ text, typed, finished }) {
+// Отображает текст для набора с цветовой подсветкой:
+//   серый  = ещё не напечатано
+//   белый  = напечатано верно
+//   красный = ошибка
+// Окно из 24 слов "скользит" вперёд по мере набора
+function TypingText({ text, typed, finished }) {
   const words = text.split(" ");
-  let currentWordIndex = 0;
 
+  // Считаем, сколько слов пользователь уже прошёл
+  let currentWord = 0;
   for (let i = 0; i < typed.length; i++) {
-    if (text[i] === " ") currentWordIndex++;
+    if (text[i] === " ") currentWord++;
   }
 
-  const visibleWordStart = Math.max(0, currentWordIndex - 8);
-  const visibleWordEnd = visibleWordStart + 24;
-  const visibleWords = words.slice(visibleWordStart, visibleWordEnd);
+  // Показываем 24 слова вокруг текущей позиции
+  const startWord = Math.max(0, currentWord - 8);
+  const visibleWords = words.slice(startWord, startWord + 24);
   const visibleText = visibleWords.join(" ");
 
-  const startCharIndex =
-    words.slice(0, visibleWordStart).join(" ").length +
-    (visibleWordStart > 0 ? 1 : 0);
-
-  const visibleChars = visibleText.split("");
+  // Смещение: где видимый текст начинается в полной строке
+  const startChar = words.slice(0, startWord).join(" ").length + (startWord > 0 ? 1 : 0);
 
   return (
     <div style={S.textArea}>
-      {visibleChars.map((ch, idx) => {
-        const realIndex = startCharIndex + idx;
-        const typedCh = typed[realIndex];
+      {visibleText.split("").map((ch, idx) => {
+        const realIndex = startChar + idx;
+        const typedChar = typed[realIndex];
 
-        const style = {
-          ...S.char,
-          color:
-            typedCh === undefined
-              ? "#8b92a6"
-              : typedCh === ch
-              ? "#e5e7eb"
-              : "#ef4444",
-        };
+        const color =
+          typedChar === undefined ? "#8b92a6" : // ещё не напечатано
+          typedChar === ch       ? "#e5e7eb" : // верно
+                                   "#ef4444";  // ошибка
 
         const isCaret = !finished && realIndex === typed.length;
 
         return (
           <span key={idx} style={{ position: "relative" }}>
             {isCaret && <span style={S.caret} />}
-            <span style={style}>{ch}</span>
+            <span style={{ ...S.char, color }}>{ch}</span>
           </span>
         );
       })}
@@ -499,6 +473,7 @@ function ThreeLineText({ text, typed, finished }) {
   );
 }
 
+// Кнопка вкладки в навбаре
 function NavBtn({ active, onClick, text }) {
   return (
     <button onClick={onClick} style={active ? S.navBtnActive : S.navBtn}>
@@ -507,6 +482,17 @@ function NavBtn({ active, onClick, text }) {
   );
 }
 
+// Один блок живой статистики (время / wpm / accuracy)
+function Stat({ label, value }) {
+  return (
+    <div style={S.bigStat}>
+      <div style={S.statLabel}>{label}</div>
+      <div style={S.statValue}>{value}</div>
+    </div>
+  );
+}
+
+// Карточка с одним показателем в экране результатов
 function ResultCard({ label, value }) {
   return (
     <div style={S.resultCard}>
@@ -516,6 +502,7 @@ function ResultCard({ label, value }) {
   );
 }
 
+// --- Стили ---
 const S = {
   page: {
     minHeight: "100vh",
@@ -530,16 +517,6 @@ const S = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 34,
-  },
-
-  brandWrap: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-  },
-
-  logo: {
-    fontSize: 22,
   },
 
   brand: {
@@ -787,6 +764,7 @@ const S = {
 
   input: {
     width: "100%",
+    boxSizing: "border-box",
     background: "#232938",
     border: "1px solid #3b4252",
     color: "#f8fafc",

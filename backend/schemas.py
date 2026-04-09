@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from typing import List
 from datetime import datetime
 
 class RegisterIn(BaseModel):
@@ -8,13 +8,12 @@ class RegisterIn(BaseModel):
     password: str = Field(min_length=6, max_length=128)
 
 class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     username: str
     email: EmailStr
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 class LoginIn(BaseModel):
     username: str
@@ -35,6 +34,8 @@ class ResultIn(BaseModel):
     correct_chars: int
 
 class ResultOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     mode_seconds: int
@@ -45,9 +46,6 @@ class ResultOut(BaseModel):
     total_chars: int
     correct_chars: int
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 class LeaderboardRow(BaseModel):
     username: str

@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -11,7 +13,12 @@ from schemas import (
 )
 from auth import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 
-app = FastAPI(title="Typing King API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+app = FastAPI(title="Typing King API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,10 +30,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-def startup():
-    Base.metadata.create_all(bind=engine)
 
 def require_user(authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> User:
     if not authorization or not authorization.lower().startswith("bearer "):
