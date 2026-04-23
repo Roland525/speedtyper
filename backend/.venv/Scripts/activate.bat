@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set "VIRTUAL_ENV=C:\Users\asus\Desktop\speedtyper\backend\.venv"
+set "VIRTUAL_ENV=C:\Users\super\Desktop\speedtyper\backend\.venv"
 
 if not defined PROMPT set PROMPT=$P$G
 
