@@ -1,5 +1,18 @@
-const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
+function getDefaultApiBase() {
+  const { protocol, hostname } = window.location;
 
+  if (hostname === "webproject.id.lv" || hostname === "www.webproject.id.lv") {
+    return `${protocol}//api.webproject.id.lv`;
+  }
+
+  if (hostname === "api.webproject.id.lv") {
+    return window.location.origin;
+  }
+
+  return "http://localhost:8000";
+}
+
+const API_BASE = (import.meta.env.VITE_API_BASE || getDefaultApiBase()).replace(/\/$/, "");
 
 export function getToken() {
   return localStorage.getItem("tk_access") || "";
@@ -15,9 +28,29 @@ export function clearTokens() {
   localStorage.removeItem("tk_refresh");
 }
 
+async function readBody(res) {
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) return res.json().catch(() => null);
+
+  const text = await res.text().catch(() => "");
+  return text ? { detail: text } : null;
+}
+
+function getErrorMessage(data, status) {
+  const detail = data?.detail ?? `HTTP ${status}`;
+
+  // FastAPI validation errors приходят массивом по полям формы.
+  if (Array.isArray(detail)) {
+    return detail.map((e) => `${e.loc?.join(".") || "field"}: ${e.msg}`).join("; ");
+  }
+
+  return typeof detail === "object" ? JSON.stringify(detail) : String(detail);
+}
+
 async function request(path, { method = "GET", body, auth = false } = {}) {
   const headers = { "Content-Type": "application/json" };
 
+  // Защищенные REST endpoints получают JWT через Authorization header.
   if (auth) {
     const t = getToken();
     if (t) headers.Authorization = `Bearer ${t}`;
@@ -31,48 +64,13 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
-    // сеть/сервер недоступен/блок CORS
     throw new Error("Failed to fetch (backend is not reachable / CORS)");
   }
 
-  // читаем ответ
-  const ct = res.headers.get("content-type") || "";
-  let data = null;
-
-  if (ct.includes("application/json")) {
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
-    }
-  } else {
-    try {
-      const text = await res.text();
-      data = text ? { detail: text } : null;
-    } catch {
-      data = null;
-    }
-  }
+  const data = await readBody(res);
 
   if (!res.ok) {
-    let detail = data?.detail ?? `HTTP ${res.status}`;
-
-    // FastAPI validation errors: detail is array
-    if (Array.isArray(detail)) {
-      detail = detail
-        .map((e) => {
-          const loc = Array.isArray(e.loc) ? e.loc.join(".") : "field";
-          return `${loc}: ${e.msg}`;
-        })
-        .join("; ");
-    }
-
-    // if detail is object
-    if (detail && typeof detail === "object") {
-      detail = JSON.stringify(detail);
-    }
-
-    throw new Error(String(detail));
+    throw new Error(getErrorMessage(data, res.status));
   }
 
   return data;

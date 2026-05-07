@@ -29,14 +29,49 @@ const WORDS = {
   ],
 };
 
+const MODES = [15, 30, 60, 120];
+const LANGUAGES = [["EN", "english"], ["RU", "russian"], ["LV", "latvian"]];
+
 // Генерирует строку из случайных слов заданного языка
 function generateWords(language, count = 120) {
   const pool = WORDS[language] || WORDS.EN;
   const words = [];
+
   for (let i = 0; i < count; i++) {
-    words.push(pool[Math.floor(Math.random() * pool.length)]);
+    const randomIndex = Math.floor(Math.random() * pool.length);
+    words.push(pool[randomIndex]);
   }
+
   return words.join(" ");
+}
+
+function countCorrectChars(text, typed) {
+  let correct = 0;
+
+  for (let i = 0; i < typed.length; i++) {
+    if (typed[i] === text[i]) correct++;
+  }
+
+  return correct;
+}
+
+function calculateStats(text, typed, mode, timeLeft) {
+  const correct = countCorrectChars(text, typed);
+  const total = typed.length;
+  const elapsed = mode - timeLeft;
+  const minutes = Math.max(elapsed / 60, 1 / 60);
+  const wpm = Math.round(correct / 5 / minutes);
+  const accuracy = total === 0 ? 0 : Math.round((correct / total) * 1000) / 10;
+
+  return {
+    wpm,
+    accuracy,
+    elapsed,
+    correct,
+    total,
+    errors: total - correct,
+    incorrect: total - correct,
+  };
 }
 
 export default function App() {
@@ -73,13 +108,13 @@ export default function App() {
     setMsg("Error: " + (e?.message || String(e)));
   }
 
-  // Сбрасывает игру в начальное состояние
-  function resetGame() {
+  // Одна функция сбрасывает состояние игры при рестарте или смене режима.
+  function resetRound(nextMode = mode, nextLanguage = language) {
     setStarted(false);
     setFinished(false);
-    setTimeLeft(mode);
+    setTimeLeft(nextMode);
     setTyped("");
-    setText(generateWords(language, 120));
+    setText(generateWords(nextLanguage, 120));
     alreadySavedRef.current = false;
     setMsg("");
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -87,14 +122,7 @@ export default function App() {
 
   // При смене режима или языка — автоматически сбрасываем игру
   useEffect(() => {
-    setStarted(false);
-    setFinished(false);
-    setTimeLeft(mode);
-    setTyped("");
-    setText(generateWords(language, 120));
-    alreadySavedRef.current = false;
-    setMsg("");
-    requestAnimationFrame(() => inputRef.current?.focus());
+    resetRound(mode, language);
   }, [language, mode]);
 
   // При загрузке страницы — проверяем, есть ли сохранённый токен
@@ -121,30 +149,7 @@ export default function App() {
 
   // Считаем WPM, accuracy и ошибки на основе напечатанного текста
   const stats = useMemo(() => {
-    let correct = 0;
-    let errors = 0;
-
-    for (let i = 0; i < typed.length; i++) {
-      if (i < text.length && typed[i] === text[i]) correct++;
-      else errors++;
-    }
-
-    const elapsed = mode - timeLeft;               // сколько секунд прошло
-    const minutes = Math.max(elapsed / 60, 1 / 60); // минимум 1 секунда, чтоб не делить на 0
-    const wpm = Math.round((correct / 5) / minutes); // стандартная формула WPM
-    const accuracy = typed.length === 0
-      ? 0
-      : Math.round((correct / typed.length) * 1000) / 10;
-
-    return {
-      wpm,
-      accuracy,
-      elapsed,
-      correct,
-      errors,
-      total: typed.length,
-      incorrect: typed.length - correct,
-    };
+    return calculateStats(text, typed, mode, timeLeft);
   }, [typed, text, mode, timeLeft]);
 
   // Вызывается при каждом нажатии клавиши
@@ -267,7 +272,7 @@ export default function App() {
             <>
               {/* Кнопки выбора режима и языка */}
               <div style={S.controlsBar}>
-                {[15, 30, 60, 120].map((m) => (
+                {MODES.map((m) => (
                   <button key={m} style={mode === m ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(m)}>
                     {m}
                   </button>
@@ -275,7 +280,7 @@ export default function App() {
 
                 <div style={S.sep} />
 
-                {[["EN", "english"], ["RU", "russian"], ["LV", "latvian"]].map(([code, label]) => (
+                {LANGUAGES.map(([code, label]) => (
                   <button key={code} style={language === code ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage(code)}>
                     {label}
                   </button>
@@ -283,7 +288,7 @@ export default function App() {
 
                 <div style={S.sep} />
 
-                <button style={S.modeBtn} onClick={resetGame}>restart</button>
+                <button style={S.modeBtn} onClick={() => resetRound()}>restart</button>
               </div>
 
               {/* Живая статистика */}
@@ -338,7 +343,7 @@ export default function App() {
               </div>
 
               <div style={S.resultActions}>
-                <button style={S.primaryBtn} onClick={resetGame}>Try again</button>
+                <button style={S.primaryBtn} onClick={() => resetRound()}>Try again</button>
                 <button style={S.smallBtn} onClick={() => setTab("leaderboard")}>Open leaderboard</button>
               </div>
             </div>
@@ -380,7 +385,7 @@ export default function App() {
           {msg && <div style={S.msg}>{msg}</div>}
 
           <div style={S.lbFilters}>
-            {[15, 30, 60, 120].map((m) => (
+            {MODES.map((m) => (
               <button key={m} style={mode === m ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(m)}>
                 {m}
               </button>
@@ -427,39 +432,43 @@ export default function App() {
   );
 }
 
-// Отображает текст для набора с цветовой подсветкой:
-//   серый  = ещё не напечатано
-//   белый  = напечатано верно
-//   красный = ошибка
-// Окно из 24 слов "скользит" вперёд по мере набора
-function TypingText({ text, typed, finished }) {
-  const words = text.split(" ");
-
-  // Считаем, сколько слов пользователь уже прошёл
+function countTypedWords(text, typed) {
   let currentWord = 0;
+
   for (let i = 0; i < typed.length; i++) {
     if (text[i] === " ") currentWord++;
   }
 
-  // Показываем 24 слова вокруг текущей позиции
+  return currentWord;
+}
+
+function getVisibleText(text, typed) {
+  const words = text.split(" ");
+  const currentWord = countTypedWords(text, typed);
   const startWord = Math.max(0, currentWord - 8);
   const visibleWords = words.slice(startWord, startWord + 24);
   const visibleText = visibleWords.join(" ");
-
-  // Смещение: где видимый текст начинается в полной строке
   const startChar = words.slice(0, startWord).join(" ").length + (startWord > 0 ? 1 : 0);
+
+  return { visibleText, startChar };
+}
+
+function getCharColor(expectedChar, typedChar) {
+  if (typedChar === undefined) return "#8b92a6";
+  if (typedChar === expectedChar) return "#e5e7eb";
+  return "#ef4444";
+}
+
+// Отображает текст для набора с цветовой подсветкой.
+function TypingText({ text, typed, finished }) {
+  const { visibleText, startChar } = getVisibleText(text, typed);
 
   return (
     <div style={S.textArea}>
       {visibleText.split("").map((ch, idx) => {
         const realIndex = startChar + idx;
         const typedChar = typed[realIndex];
-
-        const color =
-          typedChar === undefined ? "#8b92a6" : // ещё не напечатано
-          typedChar === ch       ? "#e5e7eb" : // верно
-                                   "#ef4444";  // ошибка
-
+        const color = getCharColor(ch, typedChar);
         const isCaret = !finished && realIndex === typed.length;
 
         return (
