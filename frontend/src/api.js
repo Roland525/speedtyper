@@ -1,19 +1,12 @@
 function getDefaultApiBase() {
-  const { protocol, hostname } = window.location;
+  const { hostname } = window.location;
   const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
-
-  if (hostname === "webproject.id.lv" || hostname === "www.webproject.id.lv") {
-    return `${protocol}//api.webproject.id.lv`;
-  }
-
-  if (hostname === "api.webproject.id.lv") {
-    return window.location.origin;
-  }
 
   if (isLocal) {
     return "http://localhost:8000";
   }
 
+  // On Fly.io frontend and backend are served by one FastAPI app.
   return window.location.origin;
 }
 
