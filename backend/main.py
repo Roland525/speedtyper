@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import select, desc
 
@@ -16,6 +19,8 @@ from auth import hash_password, verify_password, create_access_token, create_ref
 
 MODES = (15, 30, 60, 120)
 LANGUAGES = ("EN", "RU", "LV")
+STATIC_DIR = Path(__file__).parent / "static"
+INDEX_HTML = STATIC_DIR / "index.html"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -160,3 +165,16 @@ def leaderboard(mode_seconds: int = 30, language: str = "EN", limit: int = 20, d
             for (u, w, a, c) in rows
         ],
     }
+
+if STATIC_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+
+    @app.get("/")
+    def frontend_index():
+        return FileResponse(INDEX_HTML)
+
+    @app.get("/{path:path}")
+    def frontend_spa(path: str):
+        if path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
+        return FileResponse(INDEX_HTML)

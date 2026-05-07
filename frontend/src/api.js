@@ -1,5 +1,6 @@
 function getDefaultApiBase() {
   const { protocol, hostname } = window.location;
+  const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
 
   if (hostname === "webproject.id.lv" || hostname === "www.webproject.id.lv") {
     return `${protocol}//api.webproject.id.lv`;
@@ -9,7 +10,11 @@ function getDefaultApiBase() {
     return window.location.origin;
   }
 
-  return "http://localhost:8000";
+  if (isLocal) {
+    return "http://localhost:8000";
+  }
+
+  return window.location.origin;
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE || getDefaultApiBase()).replace(/\/$/, "");
