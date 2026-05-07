@@ -1,8 +1,0 @@
-.git
-.vscode
-backend/.venv
-backend/__pycache__
-frontend/node_modules
-frontend/dist
-frontend/.codex-logs
-*.pyc

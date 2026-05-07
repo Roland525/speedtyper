@@ -1,13 +1,15 @@
 function getDefaultApiBase() {
-  const { hostname } = window.location;
-  const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+  const { protocol, hostname } = window.location;
 
-  if (isLocal) {
-    return "http://localhost:8000";
+  if (hostname === "webproject.id.lv" || hostname === "www.webproject.id.lv") {
+    return `${protocol}//api.webproject.id.lv`;
   }
 
-  // On Fly.io frontend and backend are served by one FastAPI app.
-  return window.location.origin;
+  if (hostname === "api.webproject.id.lv") {
+    return window.location.origin;
+  }
+
+  return "http://localhost:8000";
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE || getDefaultApiBase()).replace(/\/$/, "");

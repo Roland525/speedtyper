@@ -3,15 +3,11 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-LOCAL_DATABASE_URL = "postgresql+psycopg://typingking:typingking@localhost:5433/typingking"
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-    if os.getenv("FLY_APP_NAME"):
-        raise RuntimeError("DATABASE_URL is not set. Attach a Fly Postgres database first.")
-    DATABASE_URL = LOCAL_DATABASE_URL
-
+# Локально Postgres запускается из docker-compose на порту 5433.
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg://typingking:typingking@localhost:5433/typingking",
+)
 DB_ISOLATION_LEVEL = os.getenv("DB_ISOLATION_LEVEL", "READ COMMITTED")
 
 
