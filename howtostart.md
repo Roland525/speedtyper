@@ -1,17 +1,33 @@
-Docker
-cd speedtyper
+Local database:
+
+```powershell
 docker compose up -d
+```
 
-Backend
+Local backend:
+
+```powershell
 cd C:\Users\super\Desktop\speedtyper\backend
-.\.venv\Scripts\uvicorn.exe main:app --host 127.0.0.1 --port 8000
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn main:app --host 127.0.0.1 --port 8000
+```
 
-Frontend
+Local frontend:
+
+```powershell
 cd C:\Users\super\Desktop\speedtyper\frontend
-npm.cmd run dev
+npm install
+npm run dev
+```
 
-Tunnel
-cloudflared tunnel run
+VPS production:
+
+```bash
+git pull
+sudo docker compose -f docker-compose.prod.yml up -d --build
+```
 
 
 
