@@ -21,17 +21,16 @@ class LoginIn(BaseModel):
 
 class TokenOut(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
 
 class ResultIn(BaseModel):
     mode_seconds: int
     language: str = Field(min_length=2, max_length=2)
-    wpm: float
-    accuracy: float
-    errors: int
-    total_chars: int
-    correct_chars: int
+    wpm: float = Field(ge=0)
+    accuracy: float = Field(ge=0, le=100)
+    errors: int = Field(ge=0)
+    total_chars: int = Field(ge=0)
+    correct_chars: int = Field(ge=0)
 
 class ResultOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

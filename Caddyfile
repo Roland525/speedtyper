@@ -1,7 +1,0 @@
-webproject.id.lv {
-    reverse_proxy frontend:80
-}
-
-api.webproject.id.lv {
-    reverse_proxy backend:8000
-}

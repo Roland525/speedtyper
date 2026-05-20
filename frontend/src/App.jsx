@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { api, setTokens, clearTokens, getToken } from "./api";
+import { useEffect, useRef, useState } from "react";
+import { api, setToken, clearTokens, getToken } from "./api";
 
 // --- Словари слов для каждого языка ---
 const WORDS = {
@@ -32,7 +32,8 @@ const WORDS = {
 const MODES = [15, 30, 60, 120];
 const LANGUAGES = [["EN", "english"], ["RU", "russian"], ["LV", "latvian"]];
 
-// Генерирует строку из случайных слов заданного языка
+// Берет словарь выбранного языка и собирает длинный текст из случайных слов.
+// Эту строку потом пользователь набирает во время игры.
 function generateWords(language, count = 120) {
   const pool = WORDS[language] || WORDS.EN;
   const words = [];
@@ -45,6 +46,8 @@ function generateWords(language, count = 120) {
   return words.join(" ");
 }
 
+// Сравнивает введенный текст с правильным текстом посимвольно.
+// Возвращает количество символов, которые пользователь набрал правильно.
 function countCorrectChars(text, typed) {
   let correct = 0;
 
@@ -55,22 +58,27 @@ function countCorrectChars(text, typed) {
   return correct;
 }
 
-function calculateStats(text, typed, mode, timeLeft) {
-  const correct = countCorrectChars(text, typed);
-  const total = typed.length;
-  const elapsed = mode - timeLeft;
-  const minutes = Math.max(elapsed / 60, 1 / 60);
-  const wpm = Math.round(correct / 5 / minutes);
-  const accuracy = total === 0 ? 0 : Math.round((correct / total) * 1000) / 10;
+// Главная формула статистики игры.
+// На основе правильных символов и потраченного времени считает WPM, accuracy и ошибки.
+function calculateStats(text, typed, modeSeconds, timeLeft) {
+  const correctChars = countCorrectChars(text, typed);
+  const typedChars = typed.length;
+  const secondsUsed = modeSeconds - timeLeft;
+  const minutesUsed = Math.max(secondsUsed / 60, 1 / 60);
+  const errors = typedChars - correctChars;
+
+  // В typing tests 1 word = 5 correct characters.
+  const wpm = Math.round((correctChars / 5) / minutesUsed);
+  const accuracy = typedChars === 0 ? 0 : Math.round((correctChars / typedChars) * 1000) / 10;
 
   return {
     wpm,
     accuracy,
-    elapsed,
-    correct,
-    total,
-    errors: total - correct,
-    incorrect: total - correct,
+    elapsed: secondsUsed,
+    correct: correctChars,
+    total: typedChars,
+    errors,
+    incorrect: errors,
   };
 }
 
@@ -105,10 +113,12 @@ export default function App() {
   const [msg, setMsg] = useState("");
 
   function showError(e) {
+    // Все ошибки показываем в одном месте, чтобы не дублировать setMsg в каждом catch.
     setMsg("Error: " + (e?.message || String(e)));
   }
 
-  // Одна функция сбрасывает состояние игры при рестарте или смене режима.
+  // Сбрасывает раунд: очищает ввод, ставит новый таймер и генерирует новый текст.
+  // Используется при restart, смене режима и смене языка.
   function resetRound(nextMode = mode, nextLanguage = language) {
     setStarted(false);
     setFinished(false);
@@ -120,10 +130,17 @@ export default function App() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
-  // При смене режима или языка — автоматически сбрасываем игру
-  useEffect(() => {
-    resetRound(mode, language);
-  }, [language, mode]);
+  function changeMode(nextMode) {
+    // При смене времени сразу начинаем новый раунд с этим временем.
+    setMode(nextMode);
+    resetRound(nextMode, language);
+  }
+
+  function changeLanguage(nextLanguage) {
+    // При смене языка сразу генерируем текст из словаря нового языка.
+    setLanguage(nextLanguage);
+    resetRound(mode, nextLanguage);
+  }
 
   // При загрузке страницы — проверяем, есть ли сохранённый токен
   useEffect(() => {
@@ -148,9 +165,7 @@ export default function App() {
   }, [started, finished, timeLeft]);
 
   // Считаем WPM, accuracy и ошибки на основе напечатанного текста
-  const stats = useMemo(() => {
-    return calculateStats(text, typed, mode, timeLeft);
-  }, [typed, text, mode, timeLeft]);
+  const stats = calculateStats(text, typed, mode, timeLeft);
 
   // Вызывается при каждом нажатии клавиши
   function handleTyping(e) {
@@ -169,6 +184,8 @@ export default function App() {
   // --- Авторизация ---
 
   async function register() {
+    // Отправляем форму регистрации на backend.
+    // Backend проверяет username/email и сохраняет пользователя в базе.
     setMsg("");
     try {
       await api.register(registerForm);
@@ -179,10 +196,12 @@ export default function App() {
   }
 
   async function login() {
+    // Backend возвращает JWT token.
+    // Token сохраняем в localStorage и используем для защищенных запросов.
     setMsg("");
     try {
       const tokens = await api.login(loginForm);
-      setTokens(tokens.access_token, tokens.refresh_token);
+      setToken(tokens.access_token);
       const u = await api.me();
       setUser(u);
       setMsg("Logged in as " + u.username);
@@ -193,6 +212,7 @@ export default function App() {
   }
 
   function logout() {
+    // При выходе удаляем tokens из браузера и снова считаем пользователя гостем.
     clearTokens();
     setUser(null);
     setMsg("Logged out");
@@ -200,6 +220,7 @@ export default function App() {
 
   // Сохраняем результат на сервер и обновляем лидерборд
   async function saveResult() {
+    // Результат сохраняется только через backend, чтобы leaderboard брал данные из базы.
     try {
       await api.saveResult({
         mode_seconds: mode,
@@ -239,7 +260,7 @@ export default function App() {
     }
 
     saveResult();
-  }, [finished, user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [finished, user]);
 
   return (
     <div style={S.page}>
@@ -273,7 +294,7 @@ export default function App() {
               {/* Кнопки выбора режима и языка */}
               <div style={S.controlsBar}>
                 {MODES.map((m) => (
-                  <button key={m} style={mode === m ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(m)}>
+                  <button key={m} style={mode === m ? S.modeBtnActive : S.modeBtn} onClick={() => changeMode(m)}>
                     {m}
                   </button>
                 ))}
@@ -281,7 +302,7 @@ export default function App() {
                 <div style={S.sep} />
 
                 {LANGUAGES.map(([code, label]) => (
-                  <button key={code} style={language === code ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage(code)}>
+                  <button key={code} style={language === code ? S.modeBtnActive : S.modeBtn} onClick={() => changeLanguage(code)}>
                     {label}
                   </button>
                 ))}
@@ -386,13 +407,13 @@ export default function App() {
 
           <div style={S.lbFilters}>
             {MODES.map((m) => (
-              <button key={m} style={mode === m ? S.modeBtnActive : S.modeBtn} onClick={() => setMode(m)}>
+              <button key={m} style={mode === m ? S.modeBtnActive : S.modeBtn} onClick={() => changeMode(m)}>
                 {m}
               </button>
             ))}
             <div style={S.sep} />
             {["EN", "RU", "LV"].map((code) => (
-              <button key={code} style={language === code ? S.modeBtnActive : S.modeBtn} onClick={() => setLanguage(code)}>
+              <button key={code} style={language === code ? S.modeBtnActive : S.modeBtn} onClick={() => changeLanguage(code)}>
                 {code}
               </button>
             ))}
@@ -433,6 +454,8 @@ export default function App() {
 }
 
 function countTypedWords(text, typed) {
+  // Считаем пробелы в уже введенной части текста.
+  // Так понимаем, на каком слове сейчас находится пользователь.
   let currentWord = 0;
 
   for (let i = 0; i < typed.length; i++) {
@@ -443,17 +466,24 @@ function countTypedWords(text, typed) {
 }
 
 function getVisibleText(text, typed) {
+  // Показываем не весь большой текст, а только часть вокруг текущего слова.
+  // Так интерфейс похож на typing-тренажер и не перегружает экран.
   const words = text.split(" ");
   const currentWord = countTypedWords(text, typed);
   const startWord = Math.max(0, currentWord - 8);
   const visibleWords = words.slice(startWord, startWord + 24);
   const visibleText = visibleWords.join(" ");
-  const startChar = words.slice(0, startWord).join(" ").length + (startWord > 0 ? 1 : 0);
+
+  let startChar = 0;
+  for (let i = 0; i < startWord; i++) {
+    startChar += words[i].length + 1; // +1 because there is a space after each word
+  }
 
   return { visibleText, startChar };
 }
 
 function getCharColor(expectedChar, typedChar) {
+  // Серый - символ еще не набран, белый - правильно, красный - ошибка.
   if (typedChar === undefined) return "#8b92a6";
   if (typedChar === expectedChar) return "#e5e7eb";
   return "#ef4444";

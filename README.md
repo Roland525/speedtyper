@@ -1,72 +1,105 @@
-Rolands Timonovs, Artemijs Stanko
+# Typing King
 
-Tīmekļa lietotne “Typing King” ir paredzēta lietotāja drukāšanas ātruma un precizitātes trenēšanai.
+Typing King - учебное веб-приложение для тренировки скорости печати.
 
-Lietotnē ir iespējams izvēlēties spēles režīmu (15, 30, 60 vai 120 sekundes) un valodu (EN, RU, LV). Spēles laikā lietotājs ievada parādīto tekstu, bet pēc spēles tiek aprēķināti un parādīti rezultāti:
+Пользователь выбирает режим на 15, 30, 60 или 120 секунд и язык текста: EN, RU или LV. Во время игры приложение считает скорость печати, точность и количество ошибок. Если пользователь вошел в аккаунт, результат сохраняется в базе данных и попадает в таблицу лидеров.
 
-WPM (vārdi minūtē),
-precizitāte (%),
-kļūdu skaits,
-kopējais ievadīto simbolu skaits,
-pareizi ievadīto simbolu skaits.
+## Возможности
 
-Reģistrētiem lietotājiem rezultāti tiek automātiski saglabāti datubāzē pēc katras spēles. Lietotnē ir pieejama publiska līderu tabula, kurā redzami labākie rezultāti pēc izvēlētā režīma un valodas.
+- тренировка печати на трех языках;
+- режимы игры на 15, 30, 60 и 120 секунд;
+- расчет WPM, accuracy, ошибок и введенных символов;
+- регистрация и авторизация пользователя;
+- автоматическое сохранение результата после игры;
+- таблица лидеров с фильтрами по режиму и языку.
 
-Izmantotais tehnoloģiju steks
-Frontend daļa:
+## Технологии
 
-React
+- Frontend: React, Vite, JavaScript, CSS;
+- Backend: Python, FastAPI, SQLAlchemy, Pydantic, JWT;
+- Database: PostgreSQL через Docker Compose.
 
-JavaScript
+## Структура проекта
 
-CSS
+```text
+speedtyper/
+  backend/          FastAPI backend
+  frontend/         React/Vite frontend
+  docker-compose.yml локальная PostgreSQL база
+  howtostart.md     короткая инструкция запуска
+  AIZSTAVESANAS_TEMAS.md темы для защиты
+```
 
-Backend daļa:
+## Подготовка к защите
 
-Python + FastAPI - servera un REST API izstrādei
+Файл `AIZSTAVESANAS_TEMAS.md` содержит основные теоретические темы и объясняет, как они связаны с проектом. Там отдельно отмечено, что реально используется в коде, что используется частично, а что можно объяснить только теоретически.
 
-JWT autentifikācija - lietotāju autorizācijai
+## Первый запуск
 
-SQLAlchemy - darbam ar datubāzi
+Нужны Docker Desktop, Node.js и Python 3.
 
-Pydantic - datu validācijai
+Установить зависимости backend:
 
-Datu bāze:
+```powershell
+cd C:\Users\super\Desktop\speedtyper\backend
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
 
-PostgreSQL - lietotāju un rezultātu glabāšanai (palaista caur Docker Compose)
+Установить зависимости frontend:
 
-Backend realizācija
+```powershell
+cd C:\Users\super\Desktop\speedtyper\frontend
+npm install
+```
 
-Projektā tiek izmantots atsevišķs backend serveris, jo:
+Если PowerShell блокирует `npm`, используй `npm.cmd install`.
 
-ir nepieciešama lietotāju reģistrācija un autorizācija;
+## Запуск для демонстрации
 
-rezultāti jāsaglabā drošā datubāzē;
+Терминал 1, база данных:
 
-jānodrošina līderu tabula;
+```powershell
+cd C:\Users\super\Desktop\speedtyper
+docker compose up -d
+```
 
-dati nedrīkst būt atkarīgi tikai no pārlūkprogrammas LocalStorage.
+Терминал 2, backend:
 
-Backend nodrošina REST API, ar kuru frontend daļa sazinās, izmantojot HTTP pieprasījumus.
+```powershell
+cd C:\Users\super\Desktop\speedtyper\backend
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
 
-Galvenie API endpoints
+Терминал 3, frontend:
 
-Autentifikācija:
+```powershell
+cd C:\Users\super\Desktop\speedtyper\frontend
+npm run dev
+```
 
-POST /api/auth/register - lietotāja reģistrācija
+Если PowerShell блокирует `npm`, запускай так:
 
-POST /api/auth/login - lietotāja pieteikšanās
+```powershell
+npm.cmd run dev
+```
 
-Lietotāja dati:
+Открыть приложение:
 
-GET /api/users/me - pašreizējā lietotāja profils
+```text
+http://127.0.0.1:5173/
+```
 
-Spēle un rezultāti:
+Проверка backend:
 
-GET /api/game/config - pieejamie režīmi un valodas
+```text
+http://127.0.0.1:8000/health
+http://127.0.0.1:8000/docs
+```
 
-POST /api/results - spēles rezultāta saglabāšana
+## Остановка базы
 
-Līderu tabula:
-
-GET /api/leaderboard - labāko rezultātu saraksts pēc režīma un valodas
+```powershell
+cd C:\Users\super\Desktop\speedtyper
+docker compose down
+```

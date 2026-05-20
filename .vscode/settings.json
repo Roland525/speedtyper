@@ -1,7 +1,0 @@
-﻿{
-  "terminal.integrated.inheritEnv": true,
-  "terminal.integrated.env.windows": {
-    "PATH": "C:\\Program Files\\nodejs;C:\\Users\\super\\AppData\\Roaming\\npm;${env:PATH}",
-    "Path": "C:\\Program Files\\nodejs;C:\\Users\\super\\AppData\\Roaming\\npm;${env:Path}"
-  }
-}

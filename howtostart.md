@@ -1,33 +1,53 @@
-Local database:
+# Быстрый запуск
+
+## 1. PostgreSQL
 
 ```powershell
+cd C:\Users\super\Desktop\speedtyper
 docker compose up -d
 ```
 
-Local backend:
+## 2. Backend
+
+Первый раз:
 
 ```powershell
 cd C:\Users\super\Desktop\speedtyper\backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn main:app --host 127.0.0.1 --port 8000
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Local frontend:
+Каждый запуск:
+
+```powershell
+cd C:\Users\super\Desktop\speedtyper\backend
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+## 3. Frontend
+
+Первый раз:
 
 ```powershell
 cd C:\Users\super\Desktop\speedtyper\frontend
 npm install
+```
+
+Каждый запуск:
+
+```powershell
+cd C:\Users\super\Desktop\speedtyper\frontend
 npm run dev
 ```
 
-VPS production:
+Если PowerShell ругается на `npm.ps1`, используй:
 
-```bash
-git pull
-sudo docker compose -f docker-compose.prod.yml up -d --build
+```powershell
+npm.cmd run dev
 ```
 
+Приложение откроется на:
 
-
+```text
+http://127.0.0.1:5173/
+```

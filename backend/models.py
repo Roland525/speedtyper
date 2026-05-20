@@ -8,6 +8,7 @@ def _now():
     return datetime.now(timezone.utc)
 
 class User(Base):
+    # Таблица users хранит аккаунты пользователей.
     __tablename__ = "users"
 
     # Primary key и unique indexes помогают быстро находить пользователя при login.
@@ -20,6 +21,8 @@ class User(Base):
     results = relationship("Result", back_populates="user")
 
 class Result(Base):
+    # Таблица results хранит результаты игр.
+    # Каждый результат связан с пользователем через user_id.
     __tablename__ = "results"
     __table_args__ = (
         CheckConstraint("mode_seconds IN (15, 30, 60, 120)", name="ck_results_mode"),
