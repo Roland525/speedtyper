@@ -1,7 +1,3 @@
-# Aizstāvēšanas tēmas
-
-Šis fails palīdz sagatavoties projekta aizstāvēšanai. Te ir īsi paskaidrots, kuras teorijas tēmas ir redzamas projektā, kur tās parādīt kodā un ko teikt, ja tēma projektā netiek izmantota.
-
 ## Projekta īss apraksts
 
 Typing King ir tīmekļa lietotne drukāšanas ātruma trenēšanai.
